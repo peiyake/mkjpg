@@ -1,0 +1,84 @@
+#!/bin/bash
+if [ $# != 1 ]
+then
+	echo "Usage:$0 <c source>"
+	echo "e.g:$0 demo.c"
+	exit 0
+fi
+C_SOURCE=$1
+ROOT_PATH=`pwd`
+OBJ=${C_SOURCE%.*}
+test -f $ROOT_PATH/$OBJ.jpg && rm -f $OBJ.jpg
+test -f $ROOT_PATH/graph.dot && rm -f graph.dot
+test -f $ROOT_PATH/trace.txt && rm -f trace.txt
+
+function mk_instrument()
+{
+	echo "
+/********************************************************************
+ * File: instrument.c
+ *
+ * Instrumentation source -- link this with your application, and
+ *  then execute to build trace data file (trace.txt).
+ *
+ * Author: M. Tim Jones <mtj@mtjones.com>
+ *
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+/* Function prototypes with attributes */
+void main_constructor( void )
+	__attribute__ ((no_instrument_function, constructor));
+
+void main_destructor( void )
+	__attribute__ ((no_instrument_function, destructor));
+
+void __cyg_profile_func_enter( void *, void * ) 
+	__attribute__ ((no_instrument_function));
+
+void __cyg_profile_func_exit( void *, void * )
+	__attribute__ ((no_instrument_function));
+
+
+static FILE *fp;
+
+
+void main_constructor( void )
+{
+  fp = fopen( \"trace.tx\", \"w\" );
+  if (fp == NULL) exit(-1);
+}
+
+
+void main_deconstructor( void )
+{
+  fclose( fp );
+}
+
+
+void __cyg_profile_func_enter( void *this, void *callsite )
+{
+  fprintf(fp, \"E%p\n\", (int *)this);
+}
+
+
+void __cyg_profile_func_exit( void *this, void *callsite )
+{
+  fprintf(fp, \"X%p\n\", (int *)this);
+}
+
+	" >> /instrument.c
+}
+
+test ! -f $ROOT_PATH/instrument.c && mk_instrument  
+gcc -g -finstrument-functions $C_SOURCE instrument.c -o $OBJ 
+test ! -x $ROOT_PATH/$OBJ && exit -1
+$ROOT_PATH/$OBJ
+pvtrace $OBJ
+dot -Tjpg graph.dot -o $OBJ.jpg
+test -f $ROOT_PATH/graph.dot && rm -f graph.dot
+test -f $ROOT_PATH/trace.txt && rm -f trace.txt
+echo "mkjpg create $OBJ.jpg success!"
+exit 0
