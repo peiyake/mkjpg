@@ -47,7 +47,7 @@ static FILE *fp;
 
 void main_constructor( void )
 {
-  fp = fopen( \"trace.tx\", \"w\" );
+  fp = fopen( \"trace.txt\", \"w\" );
   if (fp == NULL) exit(-1);
 }
 
@@ -69,7 +69,7 @@ void __cyg_profile_func_exit( void *this, void *callsite )
   fprintf(fp, \"X%p\n\", (int *)this);
 }
 
-	" >> /instrument.c
+	" >> $ROOT_PATH/instrument.c
 }
 
 test ! -f $ROOT_PATH/instrument.c && mk_instrument  
